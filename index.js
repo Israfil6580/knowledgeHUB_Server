@@ -176,10 +176,11 @@ async function run() {
     app.post("/Study_Materials", async (req, res) => {
       const body = req.body;
       try {
-        const result = await materialCollection.insertOne(body); // Use insertOne for a single document
+        const result = await materialCollection.insertOne(body);
         res.send(result);
       } catch (error) {
         console.error("Error updating study materials:", error);
+        res.status(500).json({ error: "Internal server error" });
       }
     });
 
@@ -204,6 +205,46 @@ async function run() {
         console.log(error.message);
       }
     });
+
+    app.get("/Created_Session/approvedSession/:sessionId", async (req, res) => {
+      const sessionId = req.params.sessionId;
+      const query = { _id: new ObjectId(sessionId), Status: "Approved" };
+      const result = await sessionCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.delete("/Study_Material/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await materialCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.patch("/Study-Material/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const data = req.body;
+        const query = { _id: new ObjectId(id) };
+        const option = { upsert: true };
+        const updateDoc = {
+          $set: {
+            MaterialTitle: data.MaterialTitle,
+            PhotoURLs: data.PhotoURLs,
+            GoogleDriveLinks: data.GoogleDriveLinks,
+          },
+        };
+        const result = await materialCollection.updateOne(
+          query,
+          updateDoc,
+          option
+        );
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating material:", error);
+        res.status(500).send({ message: "Failed to update material" });
+      }
+    });
+
     // everything in this try
     // await client.connect();
     await client.db("admin").command({ ping: 1 });
