@@ -511,6 +511,25 @@ async function run() {
       }
     });
 
+    // Express Route for fetching approved sessions with pagination
+    app.get("/Created_Session/approved", async (req, res) => {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 6; // Default limit to 6 if not provided
+
+      try {
+        // Logic to fetch sessions from your database with pagination
+        const sessions = await sessionCollection
+          .find({ approved: true })
+          .skip((page - 1) * limit)
+          .limit(limit);
+
+        res.json(sessions);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
     // await client.db("admin").command({ ping: 1 });
     // console.log(
     //   "Pinged your deployment. You successfully connected to MongoDB!"
