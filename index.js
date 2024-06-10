@@ -8,7 +8,10 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // Middleware
 const corsOptions = {
-  origin: ["http://localhost:5173", "https://your-production-url.com"], // Update with your production URL
+  origin: [
+    "http://localhost:5173",
+    "https://euphonious-centaur-a9c57b.netlify.app",
+  ], // Update with your production URL
   credentials: true,
   optionSuccessStatus: 200,
 };
@@ -27,7 +30,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const userCollection = client.db("knowledgeHUB").collection("users");
     const sessionCollection = client
       .db("knowledgeHUB")
@@ -184,6 +187,51 @@ async function run() {
       }
     });
 
+    app.get("/Session", async (req, res) => {
+      try {
+        const query = { Status: { $in: ["Pending", "Approved"] } };
+        const result = await sessionCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching sessions:", error);
+        res.status(500).send({ error: "Failed to fetch sessions" });
+      }
+    });
+
+    app.put("/Created_Session/Make_Approve/:id", async (req, res) => {
+      const id = req.params.id;
+      const { amount } = req.body;
+      const query = { _id: new ObjectId(id) };
+      const update = {
+        $set: {
+          Status: "Approved",
+          RegistrationFee: amount,
+        },
+      };
+      const options = { upsert: false };
+      const result = await sessionCollection.updateOne(query, update, options);
+      res.send(result);
+    });
+
+    app.put("/Created_Session/Make_Rejected/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const update = {
+        $set: {
+          Status: "Rejected",
+        },
+      };
+      const options = { upsert: false };
+      const result = await sessionCollection.updateOne(query, update, options);
+      res.send(result);
+    });
+    app.delete("/Created_Session/Make_Delete/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await sessionCollection.deleteOne(query);
+      res.send(result);
+    });
+
     app.get("/Created_Session/approved", async (req, res) => {
       const query = { Status: "Approved" };
       try {
@@ -267,6 +315,17 @@ async function run() {
       } catch (error) {
         console.error("Error fetching study materials:", error);
         res.status(500).send({ error: "Failed to fetch study materials" });
+      }
+    });
+    app.delete("/Study_Material/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await materialCollection.deleteOne(query);
+        res.send(result);
+      } catch (error) {
+        console.error("Error Deleting study materials:", error);
+        res.status(500).send({ error: "Failed to Deleting study materials" });
       }
     });
 
@@ -418,10 +477,44 @@ async function run() {
       }
     });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    app.get("/seeMaterials/:sessionId", async (req, res) => {
+      const sessionId = req.params.sessionId;
+      const query = { SessionId: sessionId };
+      const a = await materialCollection.find(query).toArray();
+      res.send(a);
+    });
+    app.put("/Created_Session/New_Request/:id", async (req, res) => {
+      const id = req.params.id;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: "Invalid ID format" });
+      }
+
+      const query = { _id: new ObjectId(id) };
+      const update = {
+        $set: {
+          Status: "Pending",
+        },
+      };
+      const options = { upsert: false };
+
+      try {
+        const result = await sessionCollection.findOneAndUpdate(
+          query,
+          update,
+          options
+        );
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating session status:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensuring client.close() is called after the operations are complete
     // await client.close();
